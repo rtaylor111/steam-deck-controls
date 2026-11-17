@@ -192,6 +192,7 @@ class DeckApp(tk.Tk):
         self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfigure(self.canvas_window, width=e.width))
         self._drag_y = None
         self._drag_top = 0.0
+        self._dragged = False
         self._bind_scroll(self.canvas)
         self._bind_scroll(self.rows_frame)
 
@@ -229,9 +230,14 @@ class DeckApp(tk.Tk):
     def _drag_start(self, event):
         self._drag_y = event.y_root
         self._drag_top = self.canvas.yview()[0]
+        self._dragged = False
 
     def _drag_move(self, event):
         if self._drag_y is None:
+            return
+        if abs(event.y_root - self._drag_y) > 6:
+            self._dragged = True
+        if not self._dragged:
             return
         bbox = self.canvas.bbox("all")
         if not bbox:
@@ -336,20 +342,27 @@ class DeckApp(tk.Tk):
             kind.grid(row=0, column=1)
             toggle_btn = tk.Button(
                 line, text="On" if enabled else "Off",
-                command=lambda i=index: self.toggle_row(i),
+                command=lambda i=index: self._if_not_dragged(lambda: self.toggle_row(i)),
                 bg=c["button"] if enabled else c["off"],
                 fg=c["button_text"] if enabled else c["off_text"],
                 relief="solid", bd=1, font=(FONT, 14), padx=10, pady=6,
             )
             toggle_btn.grid(row=0, column=2, padx=4)
             select_btn = tk.Button(
-                line, text="Select", command=lambda i=index: self.open_row(i),
+                line, text="Select",
+                command=lambda i=index: self._if_not_dragged(lambda: self.open_row(i)),
                 bg=c["button"], fg=c["button_text"], relief="solid", bd=1,
                 font=(FONT, 15), padx=14, pady=6,
             )
             select_btn.grid(row=0, column=3, padx=(4, 16))
-            for widget in (line, left, name, sub, kind):
+            for widget in (line, left, name, sub, kind, toggle_btn, select_btn):
                 self._bind_scroll(widget)
+
+    def _if_not_dragged(self, fn):
+        if self._dragged:
+            self._dragged = False
+            return
+        fn()
 
     def toggle_row(self, index):
         row = self.rows[index]

@@ -442,6 +442,15 @@ class LayoutTests(unittest.TestCase):
         self.assertTrue(restored, status)
         self.assertEqual(self.dest.read_bytes(), self.original)
 
+    def test_restore_stock_backs_up_and_restores_default(self):
+        row = library.blank()
+        row.update(name="Down on up", control="D-pad up", action="Keyboard", key="Down Arrow", **{"and": "none"})
+        status, wrote = layout.apply_folder(self.tmp, [row])
+        self.assertTrue(wrote, status)
+        status, restored = layout.restore_stock(self.tmp)
+        self.assertTrue(restored, status)
+        self.assertEqual(self.dest.read_bytes(), self.original)
+
 
 if __name__ == "__main__":
     unittest.main()

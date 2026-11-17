@@ -14,6 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 TARGET_NAME = "controller_neptune.vdf"
+STOCK_TEMPLATE = Path(__file__).resolve().parent / "template" / "desktop_neptune.vdf"
 
 # group id, input name, activator that holds the binding we may replace
 SLOTS = {
@@ -474,6 +475,57 @@ def restore_backup(folder):
         temporary.unlink(missing_ok=True)
         return "Could not restore from %s." % backup_dir.name, False
     return "Restored from %s." % backup_dir.name, True
+
+
+def restore_stock(folder, template_path=STOCK_TEMPLATE):
+    """Back up TARGET_NAME, then replace it with template_path. Returns (status, restored)."""
+    if not folder:
+        return "pick a folder.", False
+    if _points_outside(folder):
+        return "That file points outside this folder.", False
+    template_path = Path(template_path)
+    if not template_path.is_file():
+        return "Default layout file is missing.", False
+    try:
+        stock_bytes = template_path.read_bytes()
+        stock_text = stock_bytes.decode("utf-8")
+    except (OSError, UnicodeDecodeError):
+        return "Default layout file is missing.", False
+    if not stock_text.strip() or not _is_desktop(stock_text):
+        return "Default layout file is missing.", False
+    dest = Path(folder) / TARGET_NAME
+    if not dest.is_file():
+        return "Copy the Deck's current file into the folder first.", False
+    current_bytes = dest.read_bytes()
+    if current_bytes == stock_bytes:
+        return "Already the default layout. Nothing to restore.", False
+    root = Path(folder)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    backup_dir = root / ("backup-%s" % stamp)
+    extra = 2
+    while backup_dir.exists():
+        backup_dir = root / ("backup-%s-%s" % (stamp, extra))
+        extra += 1
+    backup_file = backup_dir / TARGET_NAME
+    try:
+        backup_dir.mkdir()
+        shutil.copy2(dest, backup_file)
+    except OSError:
+        _drop_new_backup(backup_dir, backup_file)
+        return "Could not write. The current file was left as it was.", False
+    if hashlib.sha256(backup_file.read_bytes()).digest() != hashlib.sha256(current_bytes).digest():
+        _drop_new_backup(backup_dir, backup_file)
+        return "Backup failed. The current file was left as it was.", False
+    temporary = root / (TARGET_NAME + ".restoring")
+    try:
+        temporary.write_bytes(stock_bytes)
+        if temporary.read_bytes() != stock_bytes:
+            raise OSError("short write")
+        os.replace(temporary, dest)
+    except OSError:
+        temporary.unlink(missing_ok=True)
+        return "Could not restore default. The previous file is in %s." % backup_dir.name, False
+    return "Backed up to %s, then restored to default." % backup_dir.name, True
 
 
 def _note(backup_name, notes):

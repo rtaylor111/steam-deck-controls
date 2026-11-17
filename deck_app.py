@@ -203,11 +203,15 @@ class DeckApp(tk.Tk):
             bg=c["button"], fg=c["button_text"], relief="solid", bd=1,
             font=(FONT, 18), padx=16, pady=10,
         ).pack(side="left", padx=(0, 12))
-        self.restore_button = tk.Button(
-            actions, text="Restore", command=self.restore,
+        self.restore_button = tk.Menubutton(
+            actions, text="Restore",
             bg=c["off"], fg=c["off_text"], relief="solid", bd=1,
-            font=(FONT, 18), padx=16, pady=10,
+            font=(FONT, 18), padx=16, pady=10, direction="above",
         )
+        self.restore_menu = tk.Menu(self.restore_button, tearoff=0, font=(FONT, 18))
+        self.restore_menu.add_command(label="Restore", command=self.restore)
+        self.restore_menu.add_command(label="Restore to default", command=self.restore_default)
+        self.restore_button.configure(menu=self.restore_menu)
         self.restore_button.pack(side="left", padx=(0, 12))
         self.write_button = tk.Button(
             actions, text="Write", command=self.write,
@@ -469,10 +473,13 @@ class DeckApp(tk.Tk):
         else:
             self.write_button.configure(state="normal", bg=self.colors["off"], fg=self.colors["off_text"])
         has_backup = layout.latest_backup(self.folder) is not None
-        if has_backup:
-            self.restore_button.configure(state="normal", bg=self.colors["button"], fg=self.colors["button_text"])
+        has_target = bool(self.folder) and (Path(self.folder) / layout.TARGET_NAME).is_file()
+        self.restore_menu.entryconfigure(0, state="normal" if has_backup else "disabled")
+        self.restore_menu.entryconfigure(1, state="normal" if has_target else "disabled")
+        if has_backup or has_target:
+            self.restore_button.configure(bg=self.colors["button"], fg=self.colors["button_text"])
         else:
-            self.restore_button.configure(state="normal", bg=self.colors["off"], fg=self.colors["off_text"])
+            self.restore_button.configure(bg=self.colors["off"], fg=self.colors["off_text"])
 
     def _refresh_write(self):
         status, can_write = layout.assess(self.folder, self.rows)
@@ -501,6 +508,30 @@ class DeckApp(tk.Tk):
         message, _restored = layout.restore_backup(self.folder)
         self.status.set(message)
         messagebox.showinfo("Restore", message, parent=self)
+        _status, can_write = layout.assess(self.folder, self.rows)
+        self._paint_write(can_write)
+
+    def restore_default(self):
+        if self._writing:
+            return
+        if not self.folder or not (Path(self.folder) / layout.TARGET_NAME).is_file():
+            messagebox.showinfo("Restore to default", "Copy the Deck's current file into the folder first.", parent=self)
+            return
+        if not messagebox.askyesno(
+            "Restore to default",
+            "Back up %s and restore Valve's default desktop layout?" % layout.TARGET_NAME,
+            parent=self,
+        ):
+            return
+        if _steam_running() and not messagebox.askyesno(
+            "Steam is running",
+            "Steam is open and may overwrite this file.\n\nRestore default anyway?",
+            parent=self,
+        ):
+            return
+        message, _restored = layout.restore_stock(self.folder)
+        self.status.set(message)
+        messagebox.showinfo("Restore to default", message, parent=self)
         _status, can_write = layout.assess(self.folder, self.rows)
         self._paint_write(can_write)
 

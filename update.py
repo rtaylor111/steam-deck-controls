@@ -24,6 +24,8 @@ ZIP_FILES = (
     "update.py",
     "Shortcuts.desktop",
 )
+OPTIONAL_FILES = ("template/desktop_neptune.vdf",)
+ALLOWED_FILES = ZIP_FILES + OPTIONAL_FILES
 REQUIRED = ("deck_app.py", "layout.py", "library.py", "update.py")
 _REPO_NAME = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 _SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -137,11 +139,12 @@ def files_from_zip(blob):
         if name.endswith("/"):
             continue
         parts = PurePosixPath(name).parts
-        if len(parts) > 2 or parts[-1] not in ZIP_FILES:
+        rel = PurePosixPath(*parts[1:]).as_posix() if len(parts) >= 2 else parts[0]
+        if rel not in ALLOWED_FILES:
             continue
-        if parts[-1] in found:
+        if rel in found:
             return None, "The update did not include the app."
-        found[parts[-1]] = zf.read(info)
+        found[rel] = zf.read(info)
     if any(name not in found for name in REQUIRED):
         return None, "The update did not include the app."
     return found, ""
@@ -182,7 +185,7 @@ def apply_files(folder, files, sha):
     folder = Path(folder)
     if not _SHA.fullmatch(sha or ""):
         return "Could not update. The app was left as it was.", False
-    if any(name not in ZIP_FILES for name in files):
+    if any(name not in ALLOWED_FILES for name in files):
         return "The update did not include the app.", False
     if any(name not in files for name in REQUIRED):
         return "The update did not include the app.", False
@@ -198,7 +201,9 @@ def apply_files(folder, files, sha):
     written = []
     try:
         for name, data in files.items():
-            _replace(folder / name, data)
+            target = folder / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            _replace(target, data)
             written.append(name)
         _replace(folder / "version.txt", (sha + "\n").encode("utf-8"))
         written.append("version.txt")

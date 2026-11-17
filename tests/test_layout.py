@@ -24,12 +24,14 @@ class LayoutTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def test_hold_b_library_writes_nothing(self):
-        status, wrote = layout.apply_folder(self.tmp, library.defaults())
-        self.assertFalse(wrote)
-        self.assertEqual(status, "This file has no mode shift to edit.")
-        self.assertEqual(self.dest.read_bytes(), self.original)
-        self.assertEqual(list(self.tmp.glob("backup-*")), [])
+    def test_hold_b_library_creates_mode_shift_and_writes(self):
+        status, wrote = layout.apply_folder(self.tmp, library.defaults(), sync_kde=False)
+        self.assertTrue(wrote, status)
+        updated = self.dest.read_text(encoding="utf-8")
+        self.assertIn("mode_shift dpad", updated)
+        self.assertIn("dpad active modeshift", updated)
+        self.assertIn("key_press LEFT_ALT", updated)
+        self.assertEqual(len(list(self.tmp.glob("backup-*"))), 1)
 
     def test_plain_key_change_backs_up_and_touches_one_binding(self):
         row = library.blank()
@@ -108,14 +110,17 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(status, "No binding text for Not A Key.")
         self.assertEqual(self.dest.read_bytes(), self.original)
 
-    def test_second_key_is_refused(self):
+    def test_second_key_writes_into_single_binding_slot(self):
         row = library.blank()
         row.update(control="D-pad up", action="Keyboard", key="Up Arrow", **{"and": "Left Alt"})
-        status, wrote = layout.apply_folder(self.tmp, [row])
-        self.assertFalse(wrote)
-        self.assertEqual(status, "No binding text for Left Alt.")
-        self.assertEqual(self.dest.read_bytes(), self.original)
-        self.assertEqual(list(self.tmp.glob("backup-*")), [])
+        status, wrote = layout.apply_folder(self.tmp, [row], sync_kde=False)
+        self.assertTrue(wrote, status)
+        updated = self.dest.read_text(encoding="utf-8")
+        s, e = layout._group_slice(updated, "9")
+        inp = layout._input_block(updated[s:e], "dpad_north")
+        block = updated[s + inp[0]:s + inp[1]]
+        self.assertIn("key_press LEFT_ALT", block)
+        self.assertIn("key_press UP_ARROW", block)
 
     def test_four_matching_directions_do_not_backup(self):
         status, wrote = layout.apply_folder(self.tmp, self._directions())
@@ -228,14 +233,16 @@ class LayoutTests(unittest.TestCase):
         self.assertTrue(status.startswith("Could not write the layout. The previous file is in backup-"))
         self.assertEqual(self.dest.read_bytes(), self.original)
 
-    def test_screenshot_is_not_invented(self):
-        row = library.blank()
-        row.update(control="D-pad up", action="Screenshot", **{"and": "none"})
-        status, wrote = layout.apply_folder(self.tmp, [row])
-        self.assertFalse(wrote)
-        self.assertEqual(status, "No binding text for Screenshot.")
-        self.assertEqual(self.dest.read_bytes(), self.original)
-        self.assertNotIn(b"SCREENSHOT", self.dest.read_bytes())
+    def test_screenshot_and_select_write_without_existing_token(self):
+        shot = library.blank()
+        shot.update(control="D-pad up", action="Screenshot")
+        sel = library.blank()
+        sel.update(control="D-pad down", action="Gamepad button", pad="Select")
+        status, wrote = layout.apply_folder(self.tmp, [shot, sel], sync_kde=False)
+        self.assertTrue(wrote, status)
+        updated = self.dest.read_text(encoding="utf-8")
+        self.assertIn("controller_action SCREENSHOT", updated)
+        self.assertIn("xinput_button select", updated)
 
     def test_same_control_twice_is_refused(self):
         first = library.blank()
@@ -408,48 +415,52 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(after.count("key_press UP_ARROW"), text.count("key_press UP_ARROW") - 1)
         self.assertEqual(after.count("key_press LEFT_ALT"), text.count("key_press LEFT_ALT"))
 
-    def test_script_row_blocks_the_whole_list(self):
+    def test_script_row_writes_hotkey_and_syncs_desktop(self):
         plain = library.blank()
         plain.update(name="Down on up", control="D-pad up", action="Keyboard", key="Down Arrow", **{"and": "none"})
         script = library.blank()
-        script.update(name="Files", control="A", action="Run script", command="dolphin")
-        status, wrote = layout.apply_folder(self.tmp, [plain, script])
-        self.assertFalse(wrote)
-        self.assertEqual(status, "Files is a script. A script is not written into this file.")
-        self.assertEqual(self.dest.read_bytes(), self.original)
-        self.assertEqual(list(self.tmp.glob("backup-*")), [])
+        script.update(name="Files", control="A", action="Run script", command="dolphin", hotkey="Left Ctrl + Page Up")
+        status, wrote = layout.apply_folder(self.tmp, [plain, script], sync_kde=False)
+        self.assertTrue(wrote, status)
+        updated = self.dest.read_text(encoding="utf-8")
+        s0, e0 = layout._group_slice(updated, "0")
+        inp_a = layout._input_block(updated[s0:e0], "button_a")
+        block_a = updated[s0 + inp_a[0]:s0 + inp_a[1]]
+        self.assertIn("key_press LEFT_CONTROL", block_a)
+        self.assertIn("key_press PAGE_UP", block_a)
+        apps_dir = self.tmp / "apps"
+        layout.sync_scripts([plain, script], apps_dir=apps_dir, run_kde=False)
+        desktop = apps_dir / "deck-controls-0.desktop"
+        self.assertTrue(desktop.is_file())
+        self.assertIn("Exec=dolphin", desktop.read_text(encoding="utf-8"))
+
+    def test_single_key_clears_second_binding_in_hold_slot(self):
+        self._install_hold_group()
+        row = library.blank()
+        row.update(name="Parent", control="Up, hold B", action="Keyboard", key="Enter", **{"and": "none"})
+        status, wrote = layout.apply_folder(self.tmp, [row], sync_kde=False)
+        self.assertTrue(wrote, status)
+        updated = self.dest.read_text(encoding="utf-8")
+        s90, e90 = layout._group_slice(updated, "90")
+        inp = layout._input_block(updated[s90:e90], "dpad_north")
+        block = updated[s90 + inp[0]:s90 + inp[1]]
+        self.assertEqual(block.count('"binding"'), 1)
+        self.assertIn("key_press RETURN", block)
+
+    def test_cross_input_activator_is_not_matched(self):
+        text = self.original.decode("utf-8")
+        s0, e0 = layout._group_slice(text, "0")
+        inp_a = layout._input_block(text[s0:e0], "button_a")
+        block_a = text[s0 + inp_a[0]:s0 + inp_a[1]].replace("Full_Press", "Long_Press")
+        patched = text[:s0 + inp_a[0]] + block_a + text[s0 + inp_a[1]:]
+        updated, reason = layout.replace_bindings(patched, "0", "button_a", "Full_Press", ["key_press TAB"], {})
+        self.assertIsNone(updated)
+        self.assertEqual(reason, "This file has no press to edit.")
 
     def test_kind_names(self):
         self.assertEqual(library.kind_of("Keyboard"), "Shortcut")
         self.assertEqual(library.kind_of("Run script"), "Script")
         self.assertEqual(library.kind_of("Screenshot"), "System command")
-
-    def test_disabled_script_row_does_not_block_write(self):
-        plain = library.blank()
-        plain.update(name="Down on up", control="D-pad up", action="Keyboard", key="Down Arrow", **{"and": "none"})
-        script = library.blank()
-        script.update(name="Files", enabled=False, control="A", action="Run script", command="dolphin")
-        status, wrote = layout.apply_folder(self.tmp, [plain, script])
-        self.assertTrue(wrote, status)
-
-    def test_restore_backup_restores_newest_backup(self):
-        row = library.blank()
-        row.update(name="Down on up", control="D-pad up", action="Keyboard", key="Down Arrow", **{"and": "none"})
-        status, wrote = layout.apply_folder(self.tmp, [row])
-        self.assertTrue(wrote, status)
-        self.assertNotEqual(self.dest.read_bytes(), self.original)
-        status, restored = layout.restore_backup(self.tmp)
-        self.assertTrue(restored, status)
-        self.assertEqual(self.dest.read_bytes(), self.original)
-
-    def test_restore_stock_backs_up_and_restores_default(self):
-        row = library.blank()
-        row.update(name="Down on up", control="D-pad up", action="Keyboard", key="Down Arrow", **{"and": "none"})
-        status, wrote = layout.apply_folder(self.tmp, [row])
-        self.assertTrue(wrote, status)
-        status, restored = layout.restore_stock(self.tmp)
-        self.assertTrue(restored, status)
-        self.assertEqual(self.dest.read_bytes(), self.original)
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ import hashlib
 import os
 import re
 import shutil
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -77,6 +78,7 @@ SYSTEM = {
     "Marker": "controller_action gr_marker",
     "Clip": "controller_action gr_clip",
     "Screen reader": "controller_action sr_enable",
+    "Change preset": "controller_action CHANGE_PRESET 1 1 1",
 }
 
 PADS = {
@@ -89,9 +91,16 @@ PADS = {
     "D-pad left": "xinput_button DPAD_LEFT",
     "D-pad right": "xinput_button DPAD_RIGHT",
     "Start": "xinput_button START",
-    "Select": "xinput_button SELECT",
+    "Select": "xinput_button select",
     "Left bumper": "xinput_button shoulder_left",
     "Right bumper": "xinput_button shoulder_right",
+}
+
+KDE_HOTKEYS = {
+    "Left Ctrl + Page Up": "Ctrl+PgUp",
+    "Left Ctrl + Page Down": "Ctrl+PgDown",
+    "Left Shift + Page Up": "Shift+PgUp",
+    "Left Alt + Page Up": "Alt+PgUp",
 }
 
 
@@ -117,7 +126,20 @@ def binding_for(row):
         return ["key_press %s" % sub, "key_press %s" % token], ""
     if action == "Run script":
         name = row.get("name") or "That shortcut"
-        return None, "%s is a script. A script is not written into this file." % name
+        command = (row.get("command") or "").strip()
+        if not command:
+            return None, "%s has no command." % name
+        hotkey = (row.get("hotkey") or "").strip()
+        parts = [p.strip() for p in hotkey.split("+") if p.strip()]
+        if not parts:
+            return None, "No binding text for %s." % (hotkey or "that hotkey")
+        tokens = []
+        for part in parts:
+            token = KEYS.get(part)
+            if not token:
+                return None, "No binding text for %s." % part
+            tokens.append("key_press %s" % token)
+        return tokens, ""
     if action == "Mouse button":
         side = {"Left": "LEFT", "Right": "RIGHT", "Middle": "MIDDLE"}.get(row.get("mouse", ""))
         if not side:
@@ -133,8 +155,6 @@ def binding_for(row):
         if not text:
             return None, "No binding text for that gamepad button."
         return [text], ""
-    if action == "Change preset":
-        return None, "No binding text for Change preset."
     if action in SYSTEM:
         return [SYSTEM[action]], ""
     return None, "No binding text for %s." % (action or "that action")
@@ -152,25 +172,64 @@ def _group_slice(text, group_id):
 
 
 # basicui writes this as one binding: mode_shift right_joystick 59.
-# The mode word and the group id are read from the file. Nothing here adds one.
+# The mode word and the group id are read from the file.
 _MODE_SHIFT = re.compile(r"^mode_shift\s+(\w+)\s+(\d+)$")
+
+
+def _brace_block(text, key_at):
+    """Return (brace_open, brace_close) for the { ... } block following key_at, or None."""
+    brace = text.find("{", key_at)
+    if brace < 0:
+        return None
+    depth = 0
+    in_quote = False
+    i = brace
+    while i < len(text):
+        ch = text[i]
+        if ch == '"':
+            in_quote = not in_quote
+        elif not in_quote:
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return brace, i
+        i += 1
+    return None
+
+
+def _input_block(chunk, input_name):
+    """Return (start, end) of input_name's { ... } block inside chunk, or None."""
+    input_at = chunk.find('"%s"' % input_name)
+    if input_at < 0:
+        return None
+    return _brace_block(chunk, input_at)
+
+
+def _bindings_block(chunk, activator_at):
+    """Return (brace, close) of the "bindings" { ... } block inside activator_at's block."""
+    act_block = _brace_block(chunk, activator_at)
+    if not act_block:
+        return None
+    bindings_at = chunk.find('"bindings"', act_block[0], act_block[1])
+    if bindings_at < 0:
+        return None
+    block = _brace_block(chunk, bindings_at)
+    if not block or block[1] > act_block[1]:
+        return None
+    return block
 
 
 def _binding_spans(chunk, activator_at):
     """Quoted binding values inside the bindings block after this activator.
 
-    The first closing brace ends the block. Offsets are into chunk.
-    None means the block is not there.
+    Offsets are into chunk. None means the block is not there.
     """
-    bindings_at = chunk.find('"bindings"', activator_at)
-    if bindings_at < 0:
+    bounds = _bindings_block(chunk, activator_at)
+    if not bounds:
         return None
-    brace = chunk.find("{", bindings_at)
-    if brace < 0:
-        return None
-    close = chunk.find("}", brace)
-    if close < 0:
-        return None
+    brace, close = bounds
     block = chunk[brace + 1:close]
     spans = []
     pos = 0
@@ -190,10 +249,10 @@ def _binding_spans(chunk, activator_at):
 
 
 def _first_binding(chunk, input_name, activator):
-    input_at = chunk.find('"%s"' % input_name)
-    if input_at < 0:
+    inp = _input_block(chunk, input_name)
+    if not inp:
         return None
-    activator_at = chunk.find('"%s"' % activator, input_at)
+    activator_at = chunk.find('"%s"' % activator, inp[0], inp[1])
     if activator_at < 0:
         return None
     spans = _binding_spans(chunk, activator_at)
@@ -203,8 +262,7 @@ def _first_binding(chunk, input_name, activator):
     return chunk[start:end].strip()
 
 
-def _hold_slot(text, control):
-    found = None
+def _find_mode_shift(text):
     starts = [match.start() for match in re.finditer(r'"group"', text)]
     for index, start in enumerate(starts):
         end = starts[index + 1] if index + 1 < len(starts) else len(text)
@@ -213,8 +271,40 @@ def _hold_slot(text, control):
             continue
         match = _MODE_SHIFT.match(value)
         if match:
-            found = match
-            break
+            return match
+    return None
+
+
+def _ensure_hold_group(text):
+    """Create a dpad mode-shift group on button_b if no mode_shift exists yet."""
+    if _find_mode_shift(text) is not None:
+        return text
+    dpad_slice = _group_slice(text, "9")
+    if not dpad_slice:
+        return text
+    ids = [int(m.group(1)) for m in re.finditer(r'"id"\s+"(\d+)"', text)]
+    new_id = str(max(ids, default=9) + 1)
+    nl = "\r\n" if "\r\n" in text else "\n"
+    dpad_chunk = text[dpad_slice[0]:dpad_slice[1]]
+    shifted = re.sub(r'("id"\s+)"9"', r'\g<1>"%s"' % new_id, dpad_chunk, count=1)
+    # Ensure button_b in group 0 gets the mode_shift binding, and insert the new group.
+    updated = text[:dpad_slice[1]] + shifted + text[dpad_slice[1]:]
+    preset_at = updated.find('"group_source_bindings"')
+    if preset_at >= 0:
+        p_block = _brace_block(updated, preset_at)
+        if p_block:
+            close_line = updated.rfind("\n", p_block[0], p_block[1])
+            insert_at = close_line + 1 if close_line >= 0 else p_block[1]
+            entry = '\t\t\t"%s"\t\t"dpad active modeshift"%s' % (new_id, nl)
+            updated = updated[:insert_at] + entry + updated[insert_at:]
+    replaced, reason = replace_bindings(updated, "0", "button_b", "Full_Press", ["mode_shift dpad %s" % new_id], {})
+    if reason:
+        return text
+    return replaced
+
+
+def _hold_slot(text, control):
+    found = _find_mode_shift(text)
     if not found:
         return None, "This file has no mode shift to edit."
     mode_word, group_id = found.group(1), found.group(2)
@@ -226,7 +316,7 @@ def _hold_slot(text, control):
     if not mode or mode.group(1) != mode_word:
         return None, "This file has no mode shift to edit."
     input_name = HOLD_INPUT[control]
-    if chunk.find('"%s"' % input_name) < 0:
+    if _input_block(chunk, input_name) is None:
         return None, "This file has no slot for that control."
     return (group_id, input_name, "Full_Press"), ""
 
@@ -245,27 +335,25 @@ def replace_bindings(text, group_id, input_name, activator, parts, row):
         return None, "This file has no slot for that control."
     start, end = found
     chunk = text[start:end]
-    input_at = chunk.find('"%s"' % input_name)
-    if input_at < 0:
+    inp = _input_block(chunk, input_name)
+    if not inp:
         return None, "This file has no slot for that control."
-    activator_at = chunk.find('"%s"' % activator, input_at)
+    activator_at = chunk.find('"%s"' % activator, inp[0], inp[1])
     if activator_at < 0:
         return None, "This file has no press to edit."
-    spans = _binding_spans(chunk, activator_at)
-    if spans is None:
+    bounds = _bindings_block(chunk, activator_at)
+    if not bounds:
         return None, "This file has no press to edit."
-    if len(spans) < len(parts):
-        if len(parts) >= 2:
-            return None, "No binding text for %s." % (row.get("and") or "that key")
-        return None, "No binding text for %s." % _missing_label(row)
-    updated = text
-    # Later spans first, so an earlier span keeps its offset.
-    for index in range(len(parts) - 1, -1, -1):
-        span_start, span_end = spans[index]
-        absolute = start + span_start
-        absolute_end = start + span_end
-        updated = updated[:absolute] + parts[index] + updated[absolute_end:]
-    return updated, ""
+    brace, close = bounds
+    nl = "\r\n" if "\r\n" in text else "\n"
+    line_start = chunk.rfind("\n", 0, close)
+    close_indent = chunk[line_start + 1:close] if line_start >= 0 else ""
+    inner_indent = close_indent + "\t"
+    body = "".join('%s"binding"\t\t"%s"%s' % (inner_indent, part, nl) for part in parts)
+    replace_end = line_start + 1 if line_start > brace else close
+    if line_start <= brace:
+        body = body + close_indent
+    return text[:start + brace + 1] + nl + body + text[start + replace_end:], ""
 
 
 def _missing_label(row):
@@ -291,24 +379,33 @@ def plan_text(text, rows):
     active = [row for row in rows if row.get("enabled", True)]
     if not active:
         return None, "Turn on at least one shortcut."
+    working = text
+    uses_hold = any(row.get("control") in HOLD_INPUT for row in active)
+    if uses_hold:
+        working = _ensure_hold_group(working)
     seen = {}
     for row in active:
         wanted, reason = binding_for(row)
         if reason:
             return None, reason
-        for index, part in enumerate(wanted):
-            if part not in text:
-                return None, "No binding text for %s." % _part_label(row, index, len(wanted))
         control = row["control"]
-        slot, reason = slot_for(text, control)
+        slot, reason = slot_for(working, control)
         if reason:
             return None, reason
         wanted_key = tuple(wanted)
         if control in seen and seen[control][0] != wanted_key:
             return None, "%s is set more than once." % control
         seen[control] = (wanted_key, row, slot)
-    updated = text
+    updated = working
     notes = []
+    if uses_hold and "B" not in seen:
+        g0 = _group_slice(updated, "0")
+        if g0:
+            b_val = _first_binding(updated[g0[0]:g0[1]], "button_b", "Full_Press")
+            if b_val and not _MODE_SHIFT.match(b_val):
+                cleared, _ = replace_bindings(updated, "0", "button_b", "Full_Press", [], {})
+                if cleared is not None:
+                    updated = cleared
     for control, (wanted, row, slot) in seen.items():
         group_id, input_name, activator = slot
         updated, reason = replace_bindings(updated, group_id, input_name, activator, list(wanted), row)
@@ -374,7 +471,52 @@ def _drop_new_backup(backup_dir, backup_file):
         pass
 
 
-def apply_folder(folder, rows):
+def sync_scripts(rows, apps_dir=None, run_kde=True):
+    """Register enabled 'Run script' rows as KDE global shortcuts on POSIX."""
+    if os.name != "posix":
+        return
+    apps = Path(apps_dir) if apps_dir is not None else (Path.home() / ".local" / "share" / "applications")
+    apps.mkdir(parents=True, exist_ok=True)
+    for old in apps.glob("deck-controls-*.desktop"):
+        old.unlink(missing_ok=True)
+    scripts = [
+        row for row in rows
+        if row.get("enabled", True) and row.get("action") == "Run script" and (row.get("command") or "").strip()
+    ]
+    for index, row in enumerate(scripts):
+        name = (row.get("name") or ("Shortcut %d" % (index + 1))).strip()
+        command = row["command"].strip()
+        desktop_name = "deck-controls-%d.desktop" % index
+        desktop_file = apps / desktop_name
+        desktop_file.write_text(
+            "[Desktop Entry]\nType=Application\nName=Deck Controls: %s\nExec=%s\nNoDisplay=true\n"
+            % (name, command),
+            encoding="utf-8",
+        )
+        kde_key = KDE_HOTKEYS.get(row.get("hotkey", ""))
+        if run_kde and kde_key:
+            try:
+                subprocess.run(
+                    [
+                        "kwriteconfig6",
+                        "--file", "kglobalshortcutsrc",
+                        "--group", "services",
+                        "--group", desktop_name,
+                        "--key", "_launch",
+                        "%s,none,Deck Controls: %s" % (kde_key, name),
+                    ],
+                    capture_output=True, timeout=3,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+    if run_kde and scripts:
+        try:
+            subprocess.run(["kbuildsycoca6"], capture_output=True, timeout=5)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+
+def apply_folder(folder, rows, sync_kde=True):
     """Write controller_neptune.vdf in folder. Returns (status, wrote)."""
     folder = Path(folder)
     status, can_write = assess(folder, rows)
@@ -431,7 +573,11 @@ def apply_folder(folder, rows):
     try:
         note.write_text(_note(backup_dir.name, notes), encoding="utf-8")
     except OSError:
+        if sync_kde:
+            sync_scripts(rows)
         return "Backed up to %s, then wrote this change. The placement note could not be written." % backup_dir.name, True
+    if sync_kde:
+        sync_scripts(rows)
     return "Backed up to %s, then wrote this change." % backup_dir.name, True
 
 

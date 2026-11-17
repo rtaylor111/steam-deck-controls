@@ -126,6 +126,8 @@ def load():
     for row in rows:
         item = blank()
         item.update(row)
+        if "enabled" not in row and item.get("action") == "Run script":
+            item["enabled"] = False
         cleaned.append(item)
     return cleaned
 

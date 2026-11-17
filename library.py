@@ -5,6 +5,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 LIBRARY = HERE / "shortcuts.json"
+SETTINGS = HERE / "settings.json"
 
 SHORTCUT_ACTIONS = {"Keyboard", "Mouse button", "Mouse wheel", "Gamepad button"}
 SYSTEM_ACTIONS = {
@@ -84,6 +85,7 @@ def kind_of(action):
 def blank():
     return {
         "name": "New shortcut",
+        "enabled": True,
         "control": "D-pad up",
         "action": "Keyboard",
         "key": "Up Arrow",
@@ -109,7 +111,7 @@ def defaults():
         row.update(name=name, control=control, action="Keyboard", key=key, **{"and": second})
         library.append(row)
     files = blank()
-    files.update(name="Files", control="Right grip, hold B", action="Run script", command="dolphin")
+    files.update(name="Files", enabled=False, control="Right grip, hold B", action="Run script", command="dolphin")
     library.append(files)
     return library
 
@@ -130,3 +132,19 @@ def load():
 
 def save(rows):
     LIBRARY.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+
+
+def load_folder():
+    try:
+        data = json.loads(SETTINGS.read_text(encoding="utf-8"))
+        folder = data.get("folder", "")
+        return folder if isinstance(folder, str) and Path(folder).is_dir() else ""
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return ""
+
+
+def save_folder(folder):
+    try:
+        SETTINGS.write_text(json.dumps({"folder": folder}, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        pass

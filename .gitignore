@@ -2,7 +2,9 @@ __pycache__/
 *.pyc
 github.token
 version.txt
+settings.json
 *.writing
 *.updating
 *.restore
+*.restoring
 template-write/backup-*/

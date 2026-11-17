@@ -287,8 +287,11 @@ def _part_label(row, index, count):
 
 
 def plan_text(text, rows):
+    active = [row for row in rows if row.get("enabled", True)]
+    if not active:
+        return None, "Turn on at least one shortcut."
     seen = {}
-    for row in rows:
+    for row in active:
         wanted, reason = binding_for(row)
         if reason:
             return None, reason
@@ -429,6 +432,48 @@ def apply_folder(folder, rows):
     except OSError:
         return "Backed up to %s, then wrote this change. The placement note could not be written." % backup_dir.name, True
     return "Backed up to %s, then wrote this change." % backup_dir.name, True
+
+
+def latest_backup(folder):
+    """Return the newest backup directory in folder that holds TARGET_NAME, or None."""
+    if not folder:
+        return None
+    root = Path(folder)
+    if not root.is_dir():
+        return None
+    candidates = sorted(
+        (p for p in root.iterdir() if p.is_dir() and not p.is_symlink() and p.name.startswith("backup-") and (p / TARGET_NAME).is_file() and not (p / TARGET_NAME).is_symlink()),
+        key=lambda p: p.name,
+        reverse=True,
+    )
+    return candidates[0] if candidates else None
+
+
+def restore_backup(folder):
+    """Restore TARGET_NAME from the newest backup-* folder. Returns (status, restored)."""
+    if not folder:
+        return "pick a folder.", False
+    if _points_outside(folder):
+        return "That file points outside this folder.", False
+    backup_dir = latest_backup(folder)
+    if backup_dir is None:
+        return "No backup found in this folder.", False
+    backup_file = backup_dir / TARGET_NAME
+    try:
+        backup_bytes = backup_file.read_bytes()
+    except OSError:
+        return "Could not read %s." % backup_dir.name, False
+    dest = Path(folder) / TARGET_NAME
+    temporary = Path(folder) / (TARGET_NAME + ".restoring")
+    try:
+        temporary.write_bytes(backup_bytes)
+        if temporary.read_bytes() != backup_bytes:
+            raise OSError("short write")
+        os.replace(temporary, dest)
+    except OSError:
+        temporary.unlink(missing_ok=True)
+        return "Could not restore from %s." % backup_dir.name, False
+    return "Restored from %s." % backup_dir.name, True
 
 
 def _note(backup_name, notes):

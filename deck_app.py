@@ -1,5 +1,6 @@
 """Deck screen. The saved list, then one shortcut. No keyboard is summoned."""
 
+import os
 import subprocess
 import threading
 import tkinter as tk
@@ -82,6 +83,40 @@ def _row_summary(row):
     return f"{control} \u00b7 {binding}" if binding else control
 
 
+def _detect_folder():
+    saved = library.load_folder()
+    if saved:
+        return saved
+    if DECK_CONFIGS.is_dir():
+        hits = [
+            p / "config" / "413080"
+            for p in DECK_CONFIGS.iterdir()
+            if p.is_dir() and p.name.isdigit() and (p / "config" / "413080" / layout.TARGET_NAME).is_file()
+        ]
+        if len(hits) == 1:
+            return str(hits[0])
+    return ""
+
+
+def _steam_running():
+    if os.name != "posix":
+        return False
+    try:
+        out = subprocess.run(["pgrep", "-x", "steam"], capture_output=True, timeout=2)
+        return out.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def _summon_keyboard(_event=None):
+    if os.name != "posix":
+        return
+    try:
+        subprocess.Popen(["steam", "steam://open/keyboard"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        pass
+
+
 class DeckApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -99,6 +134,7 @@ class DeckApp(tk.Tk):
         self.status = tk.StringVar()
         self._build_list()
         self._build_detail()
+        self._set_folder(_detect_folder(), save=False)
         self.show_list()
 
     def _build_list(self):
@@ -140,11 +176,13 @@ class DeckApp(tk.Tk):
         header.pack(fill="x")
         header.pack_propagate(False)
         header.columnconfigure(0, weight=1)
-        header.columnconfigure(1, minsize=180)
-        header.columnconfigure(2, minsize=120)
+        header.columnconfigure(1, minsize=150)
+        header.columnconfigure(2, minsize=80)
+        header.columnconfigure(3, minsize=110)
         tk.Label(header, text="Name", bg=c["title"], fg=c["muted"], font=(FONT, 14, "bold"), anchor="w", padx=16).grid(row=0, column=0, sticky="ew")
         tk.Label(header, text="Type", bg=c["title"], fg=c["muted"], font=(FONT, 14, "bold")).grid(row=0, column=1)
-        tk.Label(header, text="Select", bg=c["title"], fg=c["muted"], font=(FONT, 14, "bold")).grid(row=0, column=2)
+        tk.Label(header, text="On", bg=c["title"], fg=c["muted"], font=(FONT, 14, "bold")).grid(row=0, column=2)
+        tk.Label(header, text="Select", bg=c["title"], fg=c["muted"], font=(FONT, 14, "bold")).grid(row=0, column=3)
 
         self.canvas = tk.Canvas(list_wrap, bg=c["body"], highlightthickness=0, height=320)
         self.canvas.pack(fill="both", expand=True)
@@ -164,6 +202,12 @@ class DeckApp(tk.Tk):
             bg=c["button"], fg=c["button_text"], relief="solid", bd=1,
             font=(FONT, 18), padx=16, pady=10,
         ).pack(side="left", padx=(0, 12))
+        self.restore_button = tk.Button(
+            actions, text="Restore", command=self.restore,
+            bg=c["off"], fg=c["off_text"], relief="solid", bd=1,
+            font=(FONT, 18), padx=16, pady=10,
+        )
+        self.restore_button.pack(side="left", padx=(0, 12))
         self.write_button = tk.Button(
             actions, text="Write", command=self.write,
             bg=c["off"], fg=c["off_text"], relief="solid", bd=1,
@@ -246,6 +290,7 @@ class DeckApp(tk.Tk):
         var = tk.StringVar()
         if kind == "entry":
             widget = tk.Entry(frame, textvariable=var, bg=c["field"], fg=c["text"], relief="solid", bd=1, font=(FONT, 18))
+            widget.bind("<FocusIn>", _summon_keyboard)
             widget.pack(fill="x", ipady=12, pady=(6, 16))
         else:
             widget = tk.OptionMenu(frame, var, *values, command=command)
@@ -269,28 +314,49 @@ class DeckApp(tk.Tk):
         for child in self.rows_frame.winfo_children():
             child.destroy()
         for index, row in enumerate(self.rows):
+            enabled = row.get("enabled", True)
             line = tk.Frame(self.rows_frame, bg=c["body"], height=68)
             line.pack(fill="x")
             line.pack_propagate(False)
             line.columnconfigure(0, weight=1)
-            line.columnconfigure(1, minsize=180)
-            line.columnconfigure(2, minsize=120)
+            line.columnconfigure(1, minsize=150)
+            line.columnconfigure(2, minsize=80)
+            line.columnconfigure(3, minsize=110)
             left = tk.Frame(line, bg=c["body"])
             left.grid(row=0, column=0, sticky="ew", padx=(16, 8))
-            name = tk.Label(left, text=row["name"], bg=c["body"], fg=c["text"], font=(FONT, 18, "bold"), anchor="w")
+            name = tk.Label(
+                left, text=row["name"], bg=c["body"],
+                fg=c["text"] if enabled else c["muted"],
+                font=(FONT, 18, "bold"), anchor="w",
+            )
             name.pack(fill="x")
             sub = tk.Label(left, text=_row_summary(row), bg=c["body"], fg=c["muted"], font=(FONT, 13), anchor="w")
             sub.pack(fill="x")
             kind = tk.Label(line, text=library.kind_of(row["action"]), bg=c["pill"], fg=c["pill_text"], font=(FONT, 14), padx=12, pady=4)
             kind.grid(row=0, column=1)
+            toggle_btn = tk.Button(
+                line, text="On" if enabled else "Off",
+                command=lambda i=index: self.toggle_row(i),
+                bg=c["button"] if enabled else c["off"],
+                fg=c["button_text"] if enabled else c["off_text"],
+                relief="solid", bd=1, font=(FONT, 14), padx=10, pady=6,
+            )
+            toggle_btn.grid(row=0, column=2, padx=4)
             select_btn = tk.Button(
                 line, text="Select", command=lambda i=index: self.open_row(i),
                 bg=c["button"], fg=c["button_text"], relief="solid", bd=1,
                 font=(FONT, 15), padx=14, pady=6,
             )
-            select_btn.grid(row=0, column=2, padx=(8, 16))
+            select_btn.grid(row=0, column=3, padx=(4, 16))
             for widget in (line, left, name, sub, kind):
                 self._bind_scroll(widget)
+
+    def toggle_row(self, index):
+        row = self.rows[index]
+        row["enabled"] = not row.get("enabled", True)
+        library.save(self.rows)
+        self._fill_rows()
+        self._refresh_write()
 
     def open_row(self, index):
         self.index = index
@@ -357,8 +423,21 @@ class DeckApp(tk.Tk):
         self.index = None
         self.show_list()
 
+    def _set_folder(self, chosen, save=True):
+        if not chosen:
+            return
+        self.folder = chosen
+        if save:
+            library.save_folder(chosen)
+        shown = chosen
+        if len(shown) > 64:
+            shown = shown[:20] + "..." + shown[-36:]
+        self.path.configure(text=shown)
+
     def choose_folder(self):
-        if DECK_CONFIGS.is_dir():
+        if self.folder and Path(self.folder).is_dir():
+            start = self.folder
+        elif DECK_CONFIGS.is_dir():
             start = str(DECK_CONFIGS)
         elif Path("/mnt/c").is_dir():
             start = "/mnt"
@@ -367,11 +446,7 @@ class DeckApp(tk.Tk):
         chosen = filedialog.askdirectory(initialdir=start, parent=self)
         if not chosen:
             return
-        self.folder = chosen
-        shown = chosen
-        if len(shown) > 64:
-            shown = shown[:20] + "..." + shown[-36:]
-        self.path.configure(text=shown)
+        self._set_folder(chosen, save=True)
         self._refresh_write()
 
     def _paint_write(self, can_write):
@@ -380,10 +455,40 @@ class DeckApp(tk.Tk):
             self.write_button.configure(state="normal", bg=self.colors["button"], fg=self.colors["button_text"])
         else:
             self.write_button.configure(state="normal", bg=self.colors["off"], fg=self.colors["off_text"])
+        has_backup = layout.latest_backup(self.folder) is not None
+        if has_backup:
+            self.restore_button.configure(state="normal", bg=self.colors["button"], fg=self.colors["button_text"])
+        else:
+            self.restore_button.configure(state="normal", bg=self.colors["off"], fg=self.colors["off_text"])
 
     def _refresh_write(self):
         status, can_write = layout.assess(self.folder, self.rows)
         self.status.set(status)
+        self._paint_write(can_write)
+
+    def restore(self):
+        if self._writing:
+            return
+        backup = layout.latest_backup(self.folder)
+        if backup is None:
+            messagebox.showinfo("Restore", "No backup found in this folder.", parent=self)
+            return
+        if not messagebox.askyesno(
+            "Restore",
+            "Restore %s over %s?" % (backup.name, layout.TARGET_NAME),
+            parent=self,
+        ):
+            return
+        if _steam_running() and not messagebox.askyesno(
+            "Steam is running",
+            "Steam is open and may overwrite this file.\n\nRestore anyway?",
+            parent=self,
+        ):
+            return
+        message, _restored = layout.restore_backup(self.folder)
+        self.status.set(message)
+        messagebox.showinfo("Restore", message, parent=self)
+        _status, can_write = layout.assess(self.folder, self.rows)
         self._paint_write(can_write)
 
     def write(self):
@@ -397,6 +502,12 @@ class DeckApp(tk.Tk):
         if not can_write:
             self.status.set(status)
             messagebox.showinfo("Write", status, parent=self)
+            return
+        if _steam_running() and not messagebox.askyesno(
+            "Steam is running",
+            "Steam is open and may overwrite this file.\n\nWrite anyway?",
+            parent=self,
+        ):
             return
         self._writing = True
         self.write_button.configure(state="disabled", bg=self.colors["off"], fg=self.colors["off_text"])

@@ -424,6 +424,24 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(library.kind_of("Run script"), "Script")
         self.assertEqual(library.kind_of("Screenshot"), "System command")
 
+    def test_disabled_script_row_does_not_block_write(self):
+        plain = library.blank()
+        plain.update(name="Down on up", control="D-pad up", action="Keyboard", key="Down Arrow", **{"and": "none"})
+        script = library.blank()
+        script.update(name="Files", enabled=False, control="A", action="Run script", command="dolphin")
+        status, wrote = layout.apply_folder(self.tmp, [plain, script])
+        self.assertTrue(wrote, status)
+
+    def test_restore_backup_restores_newest_backup(self):
+        row = library.blank()
+        row.update(name="Down on up", control="D-pad up", action="Keyboard", key="Down Arrow", **{"and": "none"})
+        status, wrote = layout.apply_folder(self.tmp, [row])
+        self.assertTrue(wrote, status)
+        self.assertNotEqual(self.dest.read_bytes(), self.original)
+        status, restored = layout.restore_backup(self.tmp)
+        self.assertTrue(restored, status)
+        self.assertEqual(self.dest.read_bytes(), self.original)
+
 
 if __name__ == "__main__":
     unittest.main()

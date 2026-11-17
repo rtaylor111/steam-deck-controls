@@ -134,20 +134,28 @@ class DeckApp(tk.Tk):
             font=(FONT, 18), padx=16, pady=8,
         ).pack(side="left")
 
-        list_wrap = tk.Frame(body, bg=c["body"])
+        list_wrap = tk.Frame(body, bg=c["body"], highlightthickness=1, highlightbackground=c["box"])
         list_wrap.pack(fill="both", expand=True)
-        self.canvas = tk.Canvas(list_wrap, bg=c["body"], highlightthickness=1, highlightbackground=c["box"], height=360)
-        scrollbar = tk.Scrollbar(list_wrap, orient="vertical", command=self.canvas.yview, width=20)
-        self.canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        self.canvas.pack(side="left", fill="both", expand=True)
+        header = tk.Frame(list_wrap, bg=c["title"], height=40)
+        header.pack(fill="x")
+        header.pack_propagate(False)
+        header.columnconfigure(0, weight=1)
+        header.columnconfigure(1, minsize=180)
+        header.columnconfigure(2, minsize=120)
+        tk.Label(header, text="Name", bg=c["title"], fg=c["muted"], font=(FONT, 14, "bold"), anchor="w", padx=16).grid(row=0, column=0, sticky="ew")
+        tk.Label(header, text="Type", bg=c["title"], fg=c["muted"], font=(FONT, 14, "bold")).grid(row=0, column=1)
+        tk.Label(header, text="Select", bg=c["title"], fg=c["muted"], font=(FONT, 14, "bold")).grid(row=0, column=2)
+
+        self.canvas = tk.Canvas(list_wrap, bg=c["body"], highlightthickness=0, height=320)
+        self.canvas.pack(fill="both", expand=True)
         self.rows_frame = tk.Frame(self.canvas, bg=c["body"])
         self.canvas_window = self.canvas.create_window((0, 0), window=self.rows_frame, anchor="nw")
         self.rows_frame.bind("<Configure>", lambda _e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfigure(self.canvas_window, width=e.width))
-        self.canvas.bind("<MouseWheel>", self._on_wheel)
-        self.canvas.bind("<Button-4>", lambda _e: self.canvas.yview_scroll(-1, "units"))
-        self.canvas.bind("<Button-5>", lambda _e: self.canvas.yview_scroll(1, "units"))
+        self._drag_y = None
+        self._drag_top = 0.0
+        self._bind_scroll(self.canvas)
+        self._bind_scroll(self.rows_frame)
 
         actions = tk.Frame(body, bg=c["body"])
         actions.pack(fill="x", pady=(16, 0))
@@ -166,6 +174,32 @@ class DeckApp(tk.Tk):
             body, textvariable=self.status, bg=c["body"], fg=c["muted"],
             font=(FONT, 16), wraplength=1200, justify="left",
         ).pack(anchor="w", pady=(10, 0))
+
+    def _bind_scroll(self, widget):
+        widget.bind("<ButtonPress-1>", self._drag_start)
+        widget.bind("<B1-Motion>", self._drag_move)
+        widget.bind("<MouseWheel>", self._on_wheel)
+        widget.bind("<Button-4>", lambda _e: self.canvas.yview_scroll(-1, "units"))
+        widget.bind("<Button-5>", lambda _e: self.canvas.yview_scroll(1, "units"))
+
+    def _drag_start(self, event):
+        self._drag_y = event.y_root
+        self._drag_top = self.canvas.yview()[0]
+
+    def _drag_move(self, event):
+        if self._drag_y is None:
+            return
+        bbox = self.canvas.bbox("all")
+        if not bbox:
+            return
+        total = bbox[3] - bbox[1]
+        visible = self.canvas.winfo_height()
+        if total <= visible:
+            return
+        dy = self._drag_y - event.y_root
+        frac = self._drag_top + (dy / total)
+        max_top = max(0.0, 1.0 - (visible / total))
+        self.canvas.yview_moveto(min(max(0.0, frac), max_top))
 
     def _on_wheel(self, event):
         if event.delta:
@@ -238,16 +272,25 @@ class DeckApp(tk.Tk):
             line = tk.Frame(self.rows_frame, bg=c["body"], height=68)
             line.pack(fill="x")
             line.pack_propagate(False)
+            line.columnconfigure(0, weight=1)
+            line.columnconfigure(1, minsize=180)
+            line.columnconfigure(2, minsize=120)
             left = tk.Frame(line, bg=c["body"])
-            left.pack(side="left", fill="x", expand=True, padx=16)
+            left.grid(row=0, column=0, sticky="ew", padx=(16, 8))
             name = tk.Label(left, text=row["name"], bg=c["body"], fg=c["text"], font=(FONT, 18, "bold"), anchor="w")
             name.pack(fill="x")
             sub = tk.Label(left, text=_row_summary(row), bg=c["body"], fg=c["muted"], font=(FONT, 13), anchor="w")
             sub.pack(fill="x")
             kind = tk.Label(line, text=library.kind_of(row["action"]), bg=c["pill"], fg=c["pill_text"], font=(FONT, 14), padx=12, pady=4)
-            kind.pack(side="right", padx=16)
+            kind.grid(row=0, column=1)
+            select_btn = tk.Button(
+                line, text="Select", command=lambda i=index: self.open_row(i),
+                bg=c["button"], fg=c["button_text"], relief="solid", bd=1,
+                font=(FONT, 15), padx=14, pady=6,
+            )
+            select_btn.grid(row=0, column=2, padx=(8, 16))
             for widget in (line, left, name, sub, kind):
-                widget.bind("<Button-1>", lambda _e, i=index: self.open_row(i))
+                self._bind_scroll(widget)
 
     def open_row(self, index):
         self.index = index

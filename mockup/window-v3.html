@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shortcuts</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #d9d9d9;
+    --title: #f3f3f3;
+    --title-line: #d0d0d0;
+    --title-text: #1a1a1a;
+    --body: #ffffff;
+    --text: #1a1a1a;
+    --muted: #5c5c5c;
+    --line: #c8c8c8;
+    --field: #ffffff;
+    --button: #f2f2f2;
+    --button-text: #1a1a1a;
+    --button-off: #f6f6f6;
+    --button-off-text: #8a8a8a;
+  }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #111111;
+    --title: #2b2b2b;
+    --title-line: #3a3a3a;
+    --title-text: #f2f2f2;
+    --body: #1e1e1e;
+    --text: #f2f2f2;
+    --muted: #b0b0b0;
+    --line: #3a3a3a;
+    --field: #2a2a2a;
+    --button: #3a3a3a;
+    --button-text: #f2f2f2;
+    --button-off: #2a2a2a;
+    --button-off-text: #8a8a8a;
+  }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #111111;
+      --title: #2b2b2b;
+      --title-line: #3a3a3a;
+      --title-text: #f2f2f2;
+      --body: #1e1e1e;
+      --text: #f2f2f2;
+      --muted: #b0b0b0;
+      --line: #3a3a3a;
+      --field: #2a2a2a;
+      --button: #3a3a3a;
+      --button-text: #f2f2f2;
+      --button-off: #2a2a2a;
+      --button-off-text: #8a8a8a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.3 "Segoe UI", sans-serif;
+    padding: 24px 16px;
+  }
+  .note { margin: 0 auto 12px; width: min(640px, 100%); }
+  .window {
+    width: min(640px, 100%);
+    margin: 0 auto;
+    background: var(--body);
+    border: 1px solid var(--line);
+  }
+  .titlebar {
+    height: 32px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    background: var(--title);
+    color: var(--title-text);
+    border-bottom: 1px solid var(--title-line);
+    font-size: 13px;
+  }
+  .body { padding: 16px; }
+  .lede { margin: 0 0 16px; }
+  .folder {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+    column-gap: 8px;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .folder label { margin: 0; }
+  .path, .choose, input, select, .add, .remove, .write {
+    height: 32px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: var(--field);
+    color: var(--text);
+    font: inherit;
+  }
+  .path, input {
+    min-width: 0;
+    padding: 0 8px;
+  }
+  .path {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .choose, .add, .remove, .write {
+    padding: 0 12px;
+    background: var(--button);
+    color: var(--button-text);
+  }
+  .heads, .card {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 0.9fr);
+    column-gap: 8px;
+    row-gap: 8px;
+    align-items: center;
+  }
+  .heads {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+  .heads span:first-child { grid-column: 1 / -1; }
+  .name { grid-column: 1 / 3; }
+  .card { margin-bottom: 12px; }
+  .card:last-child { margin-bottom: 0; }
+  select { width: 100%; min-width: 0; padding: 0 4px; }
+  .remove { padding: 0 8px; }
+  .add { margin-top: 8px; }
+  .write {
+    display: block;
+    margin-top: 16px;
+    background: var(--button-off);
+    color: var(--button-off-text);
+  }
+</style>
+</head>
+<body>
+  <p class="note">Opening state. Four named shortcuts are already saved. The list can grow. Write is off.</p>
+  <div class="window" data-screen>
+    <div class="titlebar">Shortcuts</div>
+    <div class="body">
+      <p class="lede">Saves each shortcut by name, then writes them into the layout file.</p>
+      <div class="folder">
+        <label for="path">Folder</label>
+        <div class="path" id="path">No folder chosen</div>
+        <button type="button" class="choose">Choose folder</button>
+      </div>
+      <div class="heads">
+        <span>Name</span>
+        <span>Control</span>
+        <span>Key</span>
+        <span>Sub</span>
+      </div>
+      <div class="list">
+        <div class="card">
+          <input class="name" aria-label="Name" value="Parent folder">
+          <button type="button" class="remove">Remove</button>
+          <select aria-label="Parent folder control"><option>Up, hold B</option><option>D-pad up</option><option>A</option><option>B</option><option>X</option><option>Y</option></select>
+          <select aria-label="Parent folder key"><option>Up Arrow</option><option>Down Arrow</option><option>Left Arrow</option><option>Right Arrow</option><option>Enter</option><option>Escape</option><option>Space</option><option>Tab</option></select>
+          <select aria-label="Parent folder sub"><option>Left Alt</option><option>Left Ctrl</option><option>Left Shift</option><option>none</option></select>
+        </div>
+        <div class="card">
+          <input class="name" aria-label="Name" value="Open">
+          <button type="button" class="remove">Remove</button>
+          <select aria-label="Open control"><option>Down, hold B</option><option>D-pad down</option><option>A</option><option>B</option><option>X</option><option>Y</option></select>
+          <select aria-label="Open key"><option>Enter</option><option>Up Arrow</option><option>Down Arrow</option><option>Left Arrow</option><option>Right Arrow</option><option>Escape</option><option>Space</option><option>Tab</option></select>
+          <select aria-label="Open sub"><option>none</option><option>Left Alt</option><option>Left Ctrl</option><option>Left Shift</option></select>
+        </div>
+        <div class="card">
+          <input class="name" aria-label="Name" value="Back">
+          <button type="button" class="remove">Remove</button>
+          <select aria-label="Back control"><option>Left, hold B</option><option>D-pad left</option><option>A</option><option>B</option><option>X</option><option>Y</option></select>
+          <select aria-label="Back key"><option>Left Arrow</option><option>Up Arrow</option><option>Down Arrow</option><option>Right Arrow</option><option>Enter</option><option>Escape</option><option>Space</option><option>Tab</option></select>
+          <select aria-label="Back sub"><option>Left Alt</option><option>Left Ctrl</option><option>Left Shift</option><option>none</option></select>
+        </div>
+        <div class="card">
+          <input class="name" aria-label="Name" value="Forward">
+          <button type="button" class="remove">Remove</button>
+          <select aria-label="Forward control"><option>Right, hold B</option><option>D-pad right</option><option>A</option><option>B</option><option>X</option><option>Y</option></select>
+          <select aria-label="Forward key"><option>Right Arrow</option><option>Up Arrow</option><option>Down Arrow</option><option>Left Arrow</option><option>Enter</option><option>Escape</option><option>Space</option><option>Tab</option></select>
+          <select aria-label="Forward sub"><option>Left Alt</option><option>Left Ctrl</option><option>Left Shift</option><option>none</option></select>
+        </div>
+      </div>
+      <button type="button" class="add">Add shortcut</button>
+      <button type="button" class="write" disabled>Write</button>
+    </div>
+  </div>
+</body>
+</html>

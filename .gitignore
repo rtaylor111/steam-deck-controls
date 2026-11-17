@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+github.token
+version.txt
+*.writing
+*.updating
+*.restore
+template-write/backup-*/

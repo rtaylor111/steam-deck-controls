@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Deck Controls
+Comment=Backs up the desktop layout and writes the shortcuts
+Exec=sh -c 'cd "$(dirname "$1")" && exec python3 ./deck_app.py' sh %k
+Terminal=false
+Categories=Utility;
+StartupNotify=true
+Icon=input-gaming

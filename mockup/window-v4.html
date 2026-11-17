@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shortcuts</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #d9d9d9;
+    --title: #f3f3f3;
+    --title-line: #d0d0d0;
+    --title-text: #1a1a1a;
+    --body: #ffffff;
+    --text: #1a1a1a;
+    --muted: #5c5c5c;
+    --line: #c8c8c8;
+    --field: #ffffff;
+    --button: #f2f2f2;
+    --button-text: #1a1a1a;
+    --button-off: #f6f6f6;
+    --button-off-text: #8a8a8a;
+  }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #111111;
+    --title: #2b2b2b;
+    --title-line: #3a3a3a;
+    --title-text: #f2f2f2;
+    --body: #1e1e1e;
+    --text: #f2f2f2;
+    --muted: #b0b0b0;
+    --line: #3a3a3a;
+    --field: #2a2a2a;
+    --button: #3a3a3a;
+    --button-text: #f2f2f2;
+    --button-off: #2a2a2a;
+    --button-off-text: #8a8a8a;
+  }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #111111;
+      --title: #2b2b2b;
+      --title-line: #3a3a3a;
+      --title-text: #f2f2f2;
+      --body: #1e1e1e;
+      --text: #f2f2f2;
+      --muted: #b0b0b0;
+      --line: #3a3a3a;
+      --field: #2a2a2a;
+      --button: #3a3a3a;
+      --button-text: #f2f2f2;
+      --button-off: #2a2a2a;
+      --button-off-text: #8a8a8a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.3 "Segoe UI", sans-serif;
+    padding: 24px 16px;
+  }
+  .note { margin: 0 auto 12px; width: min(880px, 100%); }
+  .window {
+    width: min(880px, 100%);
+    margin: 0 auto;
+    background: var(--body);
+    border: 1px solid var(--line);
+  }
+  .titlebar {
+    height: 32px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    background: var(--title);
+    color: var(--title-text);
+    border-bottom: 1px solid var(--title-line);
+    font-size: 13px;
+  }
+  .body { padding: 16px; }
+  .lede { margin: 0 0 16px; }
+  .folder {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+    column-gap: 8px;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .folder label { margin: 0; }
+  .path, .choose, input, select, .add, .remove, .write {
+    height: 32px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: var(--field);
+    color: var(--text);
+    font: inherit;
+  }
+  .path, input { min-width: 0; padding: 0 8px; }
+  .path {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .choose, .add, .remove, .write {
+    padding: 0 12px;
+    background: var(--button);
+    color: var(--button-text);
+  }
+  .card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 8.5rem;
+    min-width: 0;
+  }
+  .field.name { flex-basis: 11rem; }
+  .field span { color: var(--muted); font-size: 12px; line-height: 16px; }
+  select, input { width: 100%; min-width: 0; }
+  select { padding: 0 4px; }
+  .remove { flex: 0 0 auto; padding: 0 8px; }
+  .add { margin-top: 4px; }
+  .write {
+    display: block;
+    margin-top: 16px;
+    background: var(--button-off);
+    color: var(--button-off-text);
+  }
+</style>
+</head>
+<body>
+  <p class="note">Opening state. Open Action on a row. Keyboard is a key plus an optional second key. Write is off.</p>
+  <div class="window" data-screen>
+    <div class="titlebar">Shortcuts</div>
+    <div class="body">
+      <p class="lede">Saves each named shortcut, then writes it into the layout file.</p>
+      <div class="folder">
+        <label for="path">Folder</label>
+        <div class="path" id="path">No folder chosen</div>
+        <button type="button" class="choose">Choose folder</button>
+      </div>
+
+      <div class="card">
+        <label class="field name"><span>Name</span><input aria-label="Name" value="Parent folder"></label>
+        <label class="field"><span>Control</span><select aria-label="Parent folder control"><option>Up, hold B</option><option>Down, hold B</option><option>Left, hold B</option><option>Right, hold B</option><option>D-pad up</option><option>D-pad down</option><option>D-pad left</option><option>D-pad right</option><option>A</option><option>B</option><option>X</option><option>Y</option><option>Left bumper</option><option>Right bumper</option><option>Left grip</option><option>Right grip</option><option>Start</option><option>Select</option></select></label>
+        <label class="field"><span>Action</span><select aria-label="Parent folder action"><option>Keyboard</option><option>Mouse button</option><option>Mouse wheel</option><option>Gamepad button</option><option>Show keyboard</option><option>Screenshot</option><option>Magnifier</option><option>Brighter</option><option>Dimmer</option><option>Quit</option><option>Change preset</option><option>Steam</option><option>Record</option><option>Marker</option><option>Clip</option><option>Screen reader</option></select></label>
+        <label class="field"><span>Key</span><select aria-label="Parent folder key"><option>Up Arrow</option><option>Down Arrow</option><option>Left Arrow</option><option>Right Arrow</option><option>Enter</option><option>Escape</option><option>Space</option><option>Tab</option><option>Left Ctrl</option><option>Left Alt</option><option>Left Shift</option><option>Windows</option><option>Page Up</option><option>Page Down</option></select></label>
+        <label class="field"><span>And</span><select aria-label="Parent folder and"><option>Left Alt</option><option>none</option><option>Left Ctrl</option><option>Left Shift</option><option>Windows</option></select></label>
+        <button type="button" class="remove">Remove</button>
+      </div>
+
+      <div class="card">
+        <label class="field name"><span>Name</span><input aria-label="Name" value="Open"></label>
+        <label class="field"><span>Control</span><select aria-label="Open control"><option>Down, hold B</option><option>Up, hold B</option><option>Left, hold B</option><option>Right, hold B</option><option>D-pad down</option><option>A</option><option>B</option><option>X</option><option>Y</option></select></label>
+        <label class="field"><span>Action</span><select aria-label="Open action"><option>Keyboard</option><option>Mouse button</option><option>Mouse wheel</option><option>Gamepad button</option><option>Show keyboard</option><option>Screenshot</option><option>Magnifier</option><option>Brighter</option><option>Dimmer</option><option>Quit</option><option>Change preset</option><option>Steam</option><option>Record</option><option>Marker</option><option>Clip</option><option>Screen reader</option></select></label>
+        <label class="field"><span>Key</span><select aria-label="Open key"><option>Enter</option><option>Up Arrow</option><option>Down Arrow</option><option>Left Arrow</option><option>Right Arrow</option><option>Escape</option><option>Space</option><option>Tab</option></select></label>
+        <label class="field"><span>And</span><select aria-label="Open and"><option>none</option><option>Left Alt</option><option>Left Ctrl</option><option>Left Shift</option><option>Windows</option></select></label>
+        <button type="button" class="remove">Remove</button>
+      </div>
+
+      <div class="card">
+        <label class="field name"><span>Name</span><input aria-label="Name" value="Back"></label>
+        <label class="field"><span>Control</span><select aria-label="Back control"><option>Left, hold B</option><option>D-pad left</option><option>A</option><option>B</option><option>X</option><option>Y</option></select></label>
+        <label class="field"><span>Action</span><select aria-label="Back action"><option>Keyboard</option><option>Mouse button</option><option>Mouse wheel</option><option>Gamepad button</option><option>Show keyboard</option><option>Screenshot</option><option>Magnifier</option><option>Brighter</option><option>Dimmer</option><option>Quit</option><option>Change preset</option><option>Steam</option><option>Record</option><option>Marker</option><option>Clip</option><option>Screen reader</option></select></label>
+        <label class="field"><span>Key</span><select aria-label="Back key"><option>Left Arrow</option><option>Up Arrow</option><option>Down Arrow</option><option>Right Arrow</option><option>Enter</option><option>Escape</option><option>Space</option><option>Tab</option></select></label>
+        <label class="field"><span>And</span><select aria-label="Back and"><option>Left Alt</option><option>none</option><option>Left Ctrl</option><option>Left Shift</option><option>Windows</option></select></label>
+        <button type="button" class="remove">Remove</button>
+      </div>
+
+      <div class="card">
+        <label class="field name"><span>Name</span><input aria-label="Name" value="Forward"></label>
+        <label class="field"><span>Control</span><select aria-label="Forward control"><option>Right, hold B</option><option>D-pad right</option><option>A</option><option>B</option><option>X</option><option>Y</option></select></label>
+        <label class="field"><span>Action</span><select aria-label="Forward action"><option>Keyboard</option><option>Mouse button</option><option>Mouse wheel</option><option>Gamepad button</option><option>Show keyboard</option><option>Screenshot</option><option>Magnifier</option><option>Brighter</option><option>Dimmer</option><option>Quit</option><option>Change preset</option><option>Steam</option><option>Record</option><option>Marker</option><option>Clip</option><option>Screen reader</option></select></label>
+        <label class="field"><span>Key</span><select aria-label="Forward key"><option>Right Arrow</option><option>Up Arrow</option><option>Down Arrow</option><option>Left Arrow</option><option>Enter</option><option>Escape</option><option>Space</option><option>Tab</option></select></label>
+        <label class="field"><span>And</span><select aria-label="Forward and"><option>Left Alt</option><option>none</option><option>Left Ctrl</option><option>Left Shift</option><option>Windows</option></select></label>
+        <button type="button" class="remove">Remove</button>
+      </div>
+
+      <button type="button" class="add">Add shortcut</button>
+      <button type="button" class="write" disabled>Write</button>
+    </div>
+  </div>
+</body>
+</html>

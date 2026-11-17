@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Layout changes</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #d9d9d9;
+    --title: #f3f3f3;
+    --title-line: #d0d0d0;
+    --title-text: #1a1a1a;
+    --body: #ffffff;
+    --text: #1a1a1a;
+    --muted: #5c5c5c;
+    --line: #c8c8c8;
+    --field: #ffffff;
+    --button: #f2f2f2;
+    --button-text: #1a1a1a;
+    --button-off: #f6f6f6;
+    --button-off-text: #8a8a8a;
+  }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #111111;
+    --title: #2b2b2b;
+    --title-line: #3a3a3a;
+    --title-text: #f2f2f2;
+    --body: #1e1e1e;
+    --text: #f2f2f2;
+    --muted: #b0b0b0;
+    --line: #3a3a3a;
+    --field: #2a2a2a;
+    --button: #3a3a3a;
+    --button-text: #f2f2f2;
+    --button-off: #2a2a2a;
+    --button-off-text: #8a8a8a;
+  }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #111111;
+      --title: #2b2b2b;
+      --title-line: #3a3a3a;
+      --title-text: #f2f2f2;
+      --body: #1e1e1e;
+      --text: #f2f2f2;
+      --muted: #b0b0b0;
+      --line: #3a3a3a;
+      --field: #2a2a2a;
+      --button: #3a3a3a;
+      --button-text: #f2f2f2;
+      --button-off: #2a2a2a;
+      --button-off-text: #8a8a8a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.3 "Segoe UI", sans-serif;
+    padding: 24px 16px;
+  }
+  .note { margin: 0 auto 12px; width: min(640px, 100%); }
+  .window {
+    width: min(640px, 100%);
+    margin: 0 auto;
+    background: var(--body);
+    border: 1px solid var(--line);
+  }
+  .titlebar {
+    height: 32px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    background: var(--title);
+    color: var(--title-text);
+    border-bottom: 1px solid var(--title-line);
+    font-size: 13px;
+  }
+  .body { padding: 16px; }
+  .lede { margin: 0 0 16px; }
+  .folder {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+    column-gap: 8px;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .folder label { margin: 0; }
+  .path, .choose, select, .add, .remove, .write {
+    height: 32px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: var(--field);
+    color: var(--text);
+    font: inherit;
+  }
+  .path {
+    min-width: 0;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .choose, .add, .remove, .write {
+    padding: 0 12px;
+    background: var(--button);
+    color: var(--button-text);
+  }
+  .write {
+    background: var(--button-off);
+    color: var(--button-off-text);
+    margin-top: 16px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  th, td {
+    text-align: left;
+    vertical-align: middle;
+    padding: 4px 8px 4px 0;
+    font-weight: 400;
+  }
+  th:last-child, td:last-child { padding-right: 0; }
+  th { color: var(--muted); font-size: 12px; height: 20px; }
+  col.control { width: 38%; }
+  col.sub { width: 22%; }
+  col.remove { width: 5.5rem; }
+  select { width: 100%; min-width: 0; padding: 0 4px; }
+  .remove { width: 100%; padding: 0 8px; }
+  .add { margin-top: 8px; }
+</style>
+</head>
+<body>
+  <p class="note">Opening state. The Dolphin four start in the list. Write is off.</p>
+  <div class="window" data-screen>
+    <div class="titlebar">Layout changes</div>
+    <div class="body">
+      <p class="lede">Backs up the current file, then writes these changes.</p>
+      <div class="folder">
+        <label for="path">Folder</label>
+        <div class="path" id="path">No folder chosen</div>
+        <button type="button" class="choose">Choose folder</button>
+      </div>
+      <table>
+        <colgroup>
+          <col class="control">
+          <col>
+          <col class="sub">
+          <col class="remove">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Control</th>
+            <th>Key</th>
+            <th>Sub</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><select aria-label="Change 1 control"><option>Up, hold B</option><option>D-pad up</option><option>A</option><option>B</option><option>X</option><option>Y</option><option>Left bumper</option><option>Right bumper</option></select></td>
+            <td><select aria-label="Change 1 key"><option>Up Arrow</option><option>Down Arrow</option><option>Left Arrow</option><option>Right Arrow</option><option>Enter</option><option>Escape</option><option>Space</option><option>Tab</option></select></td>
+            <td><select aria-label="Change 1 sub"><option>Left Alt</option><option>Left Ctrl</option><option>Left Shift</option><option>none</option></select></td>
+            <td><button type="button" class="remove">Remove</button></td>
+          </tr>
+          <tr>
+            <td><select aria-label="Change 2 control"><option>Down, hold B</option><option>D-pad down</option><option>A</option><option>B</option><option>X</option><option>Y</option></select></td>
+            <td><select aria-label="Change 2 key"><option>Enter</option><option>Up Arrow</option><option>Down Arrow</option><option>Left Arrow</option><option>Right Arrow</option><option>Escape</option><option>Space</option><option>Tab</option></select></td>
+            <td><select aria-label="Change 2 sub"><option>none</option><option>Left Alt</option><option>Left Ctrl</option><option>Left Shift</option></select></td>
+            <td><button type="button" class="remove">Remove</button></td>
+          </tr>
+          <tr>
+            <td><select aria-label="Change 3 control"><option>Left, hold B</option><option>D-pad left</option><option>A</option><option>B</option><option>X</option><option>Y</option></select></td>
+            <td><select aria-label="Change 3 key"><option>Left Arrow</option><option>Up Arrow</option><option>Down Arrow</option><option>Right Arrow</option><option>Enter</option><option>Escape</option><option>Space</option><option>Tab</option></select></td>
+            <td><select aria-label="Change 3 sub"><option>Left Alt</option><option>Left Ctrl</option><option>Left Shift</option><option>none</option></select></td>
+            <td><button type="button" class="remove">Remove</button></td>
+          </tr>
+          <tr>
+            <td><select aria-label="Change 4 control"><option>Right, hold B</option><option>D-pad right</option><option>A</option><option>B</option><option>X</option><option>Y</option></select></td>
+            <td><select aria-label="Change 4 key"><option>Right Arrow</option><option>Up Arrow</option><option>Down Arrow</option><option>Left Arrow</option><option>Enter</option><option>Escape</option><option>Space</option><option>Tab</option></select></td>
+            <td><select aria-label="Change 4 sub"><option>Left Alt</option><option>Left Ctrl</option><option>Left Shift</option><option>none</option></select></td>
+            <td><button type="button" class="remove">Remove</button></td>
+          </tr>
+        </tbody>
+      </table>
+      <button type="button" class="add">Add change</button>
+      <button type="button" class="write" disabled>Write</button>
+    </div>
+  </div>
+</body>
+</html>

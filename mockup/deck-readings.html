@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deck screen, two readings</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #e6e6e6;
+    --title: #f7f7f7;
+    --title-line: #d6d6d6;
+    --title-text: #1c1c1c;
+    --body: #ffffff;
+    --text: #1c1c1c;
+    --muted: #5e5e5e;
+    --line: #e2e2e2;
+    --box: #d8d8d8;
+    --field: #ffffff;
+    --row: #ffffff;
+    --pill: #efefef;
+    --pill-text: #3a3a3a;
+    --button: #f4f4f4;
+    --button-text: #1c1c1c;
+    --off: #f7f7f7;
+    --off-text: #8d8d8d;
+    --link: #1c1c1c;
+  }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #121212;
+    --title: #2a2a2a;
+    --title-line: #3a3a3a;
+    --title-text: #f3f3f3;
+    --body: #1c1c1c;
+    --text: #f3f3f3;
+    --muted: #b5b5b5;
+    --line: #2e2e2e;
+    --box: #3a3a3a;
+    --field: #262626;
+    --row: #1c1c1c;
+    --pill: #2e2e2e;
+    --pill-text: #d7d7d7;
+    --button: #2e2e2e;
+    --button-text: #f3f3f3;
+    --off: #242424;
+    --off-text: #8d8d8d;
+    --link: #f3f3f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #121212;
+      --title: #2a2a2a;
+      --title-line: #3a3a3a;
+      --title-text: #f3f3f3;
+      --body: #1c1c1c;
+      --text: #f3f3f3;
+      --muted: #b5b5b5;
+      --line: #2e2e2e;
+      --box: #3a3a3a;
+      --field: #262626;
+      --row: #1c1c1c;
+      --pill: #2e2e2e;
+      --pill-text: #d7d7d7;
+      --button: #2e2e2e;
+      --button-text: #f3f3f3;
+      --off: #242424;
+      --off-text: #8d8d8d;
+      --link: #f3f3f3;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--page);
+    color: var(--text);
+    font: 15px/1.35 "Segoe UI", sans-serif;
+    padding: 28px 16px 40px;
+  }
+  .pair {
+    width: min(920px, 100%);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  @media (min-width: 800px) {
+    .pair { grid-template-columns: 1fr 1fr; }
+  }
+  .caption {
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .window {
+    background: var(--body);
+    border: 1px solid var(--box);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .titlebar {
+    height: 44px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    background: var(--title);
+    color: var(--title-text);
+    border-bottom: 1px solid var(--title-line);
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .body { padding: 16px; }
+  .lede { margin: 0 0 16px; }
+  .folder {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+    column-gap: 8px;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .folder label { margin: 0; font-size: 14px; }
+  .path, .choose, .add, .write {
+    height: 36px;
+    border: 1px solid var(--box);
+    border-radius: 8px;
+    background: var(--field);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+  }
+  .path {
+    min-width: 0;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .choose, .add, .write {
+    padding: 0 12px;
+    background: var(--button);
+    color: var(--button-text);
+  }
+  .list {
+    border: 1px solid var(--box);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .row {
+    min-height: 48px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--row);
+    color: var(--link);
+    border-top: 1px solid var(--line);
+  }
+  .row:first-child { border-top: 0; }
+  .row-name { font-weight: 600; min-width: 0; }
+  .kind {
+    flex: 0 0 auto;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--pill);
+    color: var(--pill-text);
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 18px;
+  }
+  .add { margin-top: 12px; }
+  .write {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    background: var(--off);
+    color: var(--off-text);
+  }
+  .status {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+  <div class="pair">
+    <div>
+      <p class="caption">A. The saved list. Recommended.</p>
+      <div class="window" data-screen>
+        <div class="titlebar">Shortcuts</div>
+        <div class="body">
+          <p class="lede">Pick one, then write the file.</p>
+          <div class="folder">
+            <label>Folder</label>
+            <div class="path">No folder chosen</div>
+            <button type="button" class="choose">Choose folder</button>
+          </div>
+          <div class="list">
+            <div class="row"><span class="row-name">Parent folder</span><span class="kind">Shortcut</span></div>
+            <div class="row"><span class="row-name">Open</span><span class="kind">Shortcut</span></div>
+            <div class="row"><span class="row-name">Back</span><span class="kind">Shortcut</span></div>
+            <div class="row"><span class="row-name">Forward</span><span class="kind">Shortcut</span></div>
+            <div class="row"><span class="row-name">Files</span><span class="kind">Script</span></div>
+          </div>
+          <button type="button" class="add">Add shortcut</button>
+          <button type="button" class="write" disabled>Write</button>
+          <p class="status">pick a folder.</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="caption">B. The four folder buttons only.</p>
+      <div class="window" data-screen>
+        <div class="titlebar">Shortcuts</div>
+        <div class="body">
+          <p class="lede">Hold B, then the D-pad.</p>
+          <div class="folder">
+            <label>Folder</label>
+            <div class="path">No folder chosen</div>
+            <button type="button" class="choose">Choose folder</button>
+          </div>
+          <div class="list">
+            <div class="row"><span class="row-name">Up</span><span class="kind">Parent</span></div>
+            <div class="row"><span class="row-name">Down</span><span class="kind">Open</span></div>
+            <div class="row"><span class="row-name">Left</span><span class="kind">Back</span></div>
+            <div class="row"><span class="row-name">Right</span><span class="kind">Forward</span></div>
+          </div>
+          <button type="button" class="write" disabled>Write</button>
+          <p class="status">pick a folder.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
